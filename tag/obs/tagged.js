@@ -2,6 +2,7 @@ var { Value, computed } = require('mutant')
 var pull = require('pull-stream')
 var nest = require('depnest')
 var ref = require('ssb-ref')
+var set = require('lodash/set')
 
 exports.needs = nest({
   'sbot.pull.stream': 'first'
@@ -10,7 +11,8 @@ exports.needs = nest({
 exports.gives = nest({
   'tag.obs': [
     'taggedMessages',
-    'messagesTagged'
+    'messageTags',
+    'allTagsFrom'
   ]
 })
 
@@ -22,7 +24,8 @@ exports.create = function(api) {
   return nest({
     'tag.obs': {
       taggedMessages,
-      messageTags
+      messageTags,
+      allTagsFrom
     }
   })
 
@@ -34,6 +37,11 @@ exports.create = function(api) {
   function messageTags(msgId, tagId) {
     if (!ref.isLink(tagId) || !ref.isLink(msgId)) throw new Error('Requires an ssb ref!')
     return withSync(computed([get(msgId, messagesCache), tagId], getMessageTags))
+  }
+
+  function allTagsFrom(author) {
+    if (!ref.isLink(author)) throw new Error('Requires an ssb ref!')
+    return withSync(computed(get(author, tagsCache), lookup => Object.keys(lookup)))
   }
 
   function withSync(obs) {
@@ -58,21 +66,32 @@ exports.create = function(api) {
         api.sbot.pull.stream(sbot => sbot.tags.stream({ live: true })),
         pull.drain(item => {
           if (!sync()) {
-            // populate observable cache
-            for (const author in item.tags) {
-              update(author, item.tags[author], tagsCache)
+            // populate tags observable cache
+            const messageLookup = {}
+            for (const author in item) {
+              update(author, item[author], tagsCache)
+
+              // generate message lookup
+              for (const tag in item[author]) {
+                for (const message in item[author][tag]) {
+                  set(messageLookup, [message, tag, author], item[message][author][tag])
+                }
+              }
             }
-            for (const message in item.messages) {
-              update(message, item.messages[message], messagesCache)
+
+            // populate messages observable cache
+            for (const message in messageLookup) {
+              update(message, messageLookup[message], messagesCache)
             }
+
             if (!sync()) {
               sync.set(true)
             }
           } else if (item && ref.isLink(item.tag) && ref.isLink(item.author) && ref.isLink(item.message)) {
             // handle realtime updates
             const { tag, author, message, tagged, timestamp } = item
-            update(author, { [tag]: { [message]: { timestamp, tagged } } }, tagsCache)
-            update(message, { [tag]: { [author]: { timestamp, tagged } } }, messagesCache)
+            update(author, { [tag]: { [message]: timestamp } }, tagsCache)
+            update(message, { [tag]: { [author]: timestamp } }, messagesCache)
           }
         })
       )
@@ -112,9 +131,9 @@ function getTaggedMessages(lookup, key) {
 function getMessageTags(lookup, tagId) {
   const tags = {}
   for (const author in lookup[tagId]) {
-    if (lookup[tagId][author].tagged) {
+    if (lookup[tagId][author]) {
       if (!tags[tagId]) tags[tagId] = {}
-      tags[tagId][author] = lookup[tagId][author].timestamp
+      tags[tagId][author] = lookup[tagId][author]
     }
   }
   return tags
