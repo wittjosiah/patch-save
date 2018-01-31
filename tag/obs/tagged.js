@@ -3,6 +3,7 @@ var pull = require('pull-stream')
 var nest = require('depnest')
 var ref = require('ssb-ref')
 var set = require('lodash/set')
+var get = require('lodash/get')
 
 exports.needs = nest({
   'sbot.pull.stream': 'first'
@@ -17,8 +18,9 @@ exports.gives = nest({
 })
 
 exports.create = function(api) {
-  var tagsCache = null
-  var messagesCache = null
+  var tagsCache = {}
+  var messagesCache = {}
+  var cacheLoading = false
   var sync = Value(false)
 
   return nest({
@@ -30,18 +32,18 @@ exports.create = function(api) {
   })
 
   function taggedMessages(author, tagId) {
-    if (!ref.isLink(author) || !ref.isLink(tagId)) throw new Error('Requires an ssb ref!')
-    return withSync(computed([get(author, tagsCache), tagId], getTaggedMessages))
+    if (!ref.isFeed(author) || !ref.isLink(tagId)) throw new Error('Requires an ssb ref!')
+    return withSync(computed([getObs(author, tagsCache), tagId], getTaggedMessages))
   }
 
   function messageTags(msgId, tagId) {
     if (!ref.isLink(tagId) || !ref.isLink(msgId)) throw new Error('Requires an ssb ref!')
-    return withSync(computed([get(msgId, messagesCache), tagId], getMessageTags))
+    return withSync(computed([getObs(msgId, messagesCache), tagId], getMessageTags))
   }
 
   function allTagsFrom(author) {
-    if (!ref.isLink(author)) throw new Error('Requires an ssb ref!')
-    return withSync(computed(get(author, tagsCache), lookup => Object.keys(lookup)))
+    if (!ref.isFeed(author)) throw new Error('Requires an ssb ref!')
+    return withSync(computed(getObs(author, tagsCache), Object.keys))
   }
 
   function withSync(obs) {
@@ -49,79 +51,80 @@ exports.create = function(api) {
     return obs
   }
 
-  function get(id, lookup) {
+  function getObs(id, lookup) {
     if (!ref.isLink(id)) throw new Error('Requires an ssb ref!')
-    load()
+    if (!cacheLoading) {
+      cacheLoading = true
+      loadCache()
+    }
     if (!lookup[id]) {
       lookup[id] = Value({})
     }
     return lookup[id]
   }
 
-  function load() {
-    if (!tagsCache) {
-      tagsCache = {}
-      messagesCache = {}
-      pull(
-        api.sbot.pull.stream(sbot => sbot.tags.stream({ live: true })),
-        pull.drain(item => {
-          if (!sync()) {
-            // populate tags observable cache
-            const messageLookup = {}
-            for (const author in item) {
-              update(author, item[author], tagsCache)
-
-              // generate message lookup
-              for (const tag in item[author]) {
-                for (const message in item[author][tag]) {
-                  set(messageLookup, [message, tag, author], item[message][author][tag])
-                }
-              }
-            }
-
-            // populate messages observable cache
-            for (const message in messageLookup) {
-              update(message, messageLookup[message], messagesCache)
-            }
-
-            if (!sync()) {
-              sync.set(true)
-            }
-          } else if (item && ref.isLink(item.tag) && ref.isLink(item.author) && ref.isLink(item.message)) {
-            // handle realtime updates
-            const { tag, author, message, tagged, timestamp } = item
-            update(author, { [tag]: { [message]: timestamp } }, tagsCache)
-            update(message, { [tag]: { [author]: timestamp } }, messagesCache)
-          }
-        })
-      )
-    }
-  }
-}
-
-function update(id, values, lookup) {
-  const state = get(id, lookup)
-  const lastState = state()
-  var changed = false
-
-  for (const tag in values) {
-    for (const key in values[tag]) {
-      if (values[tag][key] !== lastState[tag][key]) {
-        lastState[tag][key] = values[tag][key]
-        changed = true
+  function update(id, values, lookup) {
+    const state = getObs(id, lookup)
+    const lastState = state()
+    var changed = false
+  
+    for (const tag in values) {
+      for (const key in values[tag]) {
+        var value = get(values, [ tag, key ])
+        var lastValue = get(lastState, [ tag, key ])
+        if (value !== lastValue) {
+          set(lastState, [tag, key], value)
+          changed = true
+        }
       }
     }
+  
+    if (changed) {
+      state.set(lastState)
+    }
   }
 
-  if (changed) {
-    state.set(lastState)
+  function loadCache() {
+    pull(
+      api.sbot.pull.stream(sbot => sbot.tags.stream({ live: true })),
+      pull.drain(item => {
+        if (!sync()) {
+          // populate tags observable cache
+          const messageLookup = {}
+          for (const author in item) {
+            update(author, item[author], tagsCache)
+
+            // generate message lookup
+            for (const tag in item[author]) {
+              for (const message in item[author][tag]) {
+                set(messageLookup, [message, tag, author], item[author][tag][message])
+              }
+            }
+          }
+
+          // populate messages observable cache
+          for (const message in messageLookup) {
+            update(message, messageLookup[message], messagesCache)
+          }
+
+          if (!sync()) {
+            sync.set(true)
+          }
+        } else if (item && ref.isLink(item.tag) && ref.isFeed(item.author) && ref.isLink(item.message)) {
+          // handle realtime updates
+          const { tag, author, message, tagged, timestamp } = item
+          update(author, { [tag]: { [message]: timestamp } }, tagsCache)
+          update(message, { [tag]: { [author]: timestamp } }, messagesCache)
+        }
+      })
+    )
   }
 }
 
 function getTaggedMessages(lookup, key) {
   const messages = []
   for (const msg in lookup[key]) {
-    if (lookup[key][msg].tagged) {
+    if (lookup[key][msg]) {
       messages.push(msg)
     }
   }
