@@ -8,7 +8,7 @@ exports.needs = nest({
 
 exports.create = function(api) {
   return nest('tag.async.create', function(recps, cb) {
-    if (recps && recps.length === 0) {
+    if (recps && recps.length > 0) {
       api.sbot.async.publish({
         type: 'tag',
         recps: data.recps,

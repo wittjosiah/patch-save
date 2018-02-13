@@ -1,4 +1,4 @@
-var { Value, computed } = require('mutant')
+var { Value, Set, computed } = require('mutant')
 var pull = require('pull-stream')
 var nest = require('depnest')
 var ref = require('ssb-ref')
@@ -13,7 +13,8 @@ exports.gives = nest({
   'tag.obs': [
     'taggedMessages',
     'messageTags',
-    'allTagsFrom'
+    'allTagsFrom',
+    'allTags'
   ]
 })
 
@@ -27,7 +28,8 @@ exports.create = function(api) {
     'tag.obs': {
       taggedMessages,
       messageTags,
-      allTagsFrom
+      allTagsFrom,
+      allTags
     }
   })
 
@@ -36,14 +38,18 @@ exports.create = function(api) {
     return withSync(computed([getObs(author, tagsCache), tagId], getTaggedMessages))
   }
 
-  function messageTags(msgId, tagId) {
-    if (!ref.isLink(tagId) || !ref.isLink(msgId)) throw new Error('Requires an ssb ref!')
-    return withSync(computed([getObs(msgId, messagesCache), tagId], getMessageTags))
+  function messageTags(msgId) {
+    if (!ref.isLink(msgId)) throw new Error('Requires an ssb ref!')
+    return withSync(computed(getObs(msgId, messagesCache), Object.keys))
   }
 
   function allTagsFrom(author) {
     if (!ref.isFeed(author)) throw new Error('Requires an ssb ref!')
     return withSync(computed(getObs(author, tagsCache), Object.keys))
+  }
+
+  function allTags() {
+    return withSync(getAllTags(getCache(tagsCache)))
   }
 
   function withSync(obs) {
@@ -61,6 +67,14 @@ exports.create = function(api) {
       lookup[id] = Value({})
     }
     return lookup[id]
+  }
+
+  function getCache(lookup) {
+    if (!cacheLoading) {
+      cacheLoading = true
+      loadCache()
+    }
+    return lookup
   }
 
   function update(id, values, lookup) {
@@ -137,6 +151,17 @@ function getMessageTags(lookup, tagId) {
     if (lookup[tagId][author]) {
       if (!tags[tagId]) tags[tagId] = {}
       tags[tagId][author] = lookup[tagId][author]
+    }
+  }
+  return tags
+}
+
+function getAllTags(lookup) {
+  const tags = Set([])
+  for (const author in lookup) {
+    const authorTags = lookup[author]()
+    for (const tag in authorTags) {
+      tags.add(tag)
     }
   }
   return tags
