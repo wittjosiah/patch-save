@@ -3,7 +3,9 @@ var pull = require('pull-stream')
 var nest = require('depnest')
 var ref = require('ssb-ref')
 var set = require('lodash/set')
+var unset = require('lodash/unset')
 var get = require('lodash/get')
+var isEmpty = require('lodash/isEmpty')
 
 exports.needs = nest({
   'sbot.pull.stream': 'first'
@@ -40,7 +42,7 @@ exports.create = function(api) {
 
   function messageTags(msgId) {
     if (!ref.isLink(msgId)) throw new Error('Requires an ssb ref!')
-    return withSync(computed(getObs(msgId, messagesCache), Object.keys))
+    return withSync(computed(getObs(msgId, messagesCache), getMessageTags))
   }
 
   function allTagsFrom(author) {
@@ -83,11 +85,22 @@ exports.create = function(api) {
     var changed = false
   
     for (const tag in values) {
+      const lastTag = lastState[tag]
+      const isUnusedTag = isEmpty(values[tag]) && (lastTag === undefined || !isEmpty(lastTag))
+      if (isUnusedTag) {
+        set(lastState, [ tag ], {})
+        changed = true
+        continue
+      }
       for (const key in values[tag]) {
-        var value = get(values, [ tag, key ])
-        var lastValue = get(lastState, [ tag, key ])
+        const value = get(values, [ tag, key ])
+        const lastValue = get(lastState, [ tag, key ])
         if (value !== lastValue) {
-          set(lastState, [tag, key], value)
+          if (value) {
+            set(lastState, [ tag, key ], value)
+          } else {
+            unset(lastState, [ tag, key ])
+          }
           changed = true
         }
       }
@@ -124,11 +137,16 @@ exports.create = function(api) {
           if (!sync()) {
             sync.set(true)
           }
-        } else if (item && ref.isLink(item.tag) && ref.isFeed(item.author) && ref.isLink(item.message)) {
+        } else if (item && ref.isLink(item.tagKey) && ref.isFeed(item.author) && ref.isLink(item.message)) {
           // handle realtime updates
-          const { tag, author, message, tagged, timestamp } = item
-          update(author, { [tag]: { [message]: timestamp } }, tagsCache)
-          update(message, { [tag]: { [author]: timestamp } }, messagesCache)
+          const { tagKey, author, message, tagged, timestamp } = item
+          if (tagged) {
+            update(author, { [tagKey]: { [message]: timestamp } }, tagsCache)
+            update(message, { [tagKey]: { [author]: timestamp } }, messagesCache)
+          } else {
+            update(author, { [tagKey]: { [message]: false } }, tagsCache)
+            update(message, { [tagKey]: { [author]: false } }, messagesCache)
+          }
         }
       })
     )
@@ -145,12 +163,11 @@ function getTaggedMessages(lookup, key) {
   return messages
 }
 
-function getMessageTags(lookup, tagId) {
-  const tags = {}
-  for (const author in lookup[tagId]) {
-    if (lookup[tagId][author]) {
-      if (!tags[tagId]) tags[tagId] = {}
-      tags[tagId][author] = lookup[tagId][author]
+function getMessageTags(lookup) {
+  const tags = []
+  for (const tag in lookup) {
+    if (!isEmpty(lookup[tag])) {
+      tags.push(tag)
     }
   }
   return tags
