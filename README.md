@@ -25,7 +25,8 @@ exports.gives = nest({
   'tag.obs': [
     'taggedMessages',
     'messageTags',
-    'allTagsFrom'
+    'allTagsFrom',
+    'allTags'
   ]
 })
 ```
