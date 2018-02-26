@@ -1,7 +1,14 @@
-const bulk = require('bulk-require')
+var modules = {
+  tag: {
+    async: {
+      apply: require('./tag/async/apply'),
+      create: require('./tag/async/create'),
+      name: require('./tag/async/name'),
+    },
+    obs: require('./tag/obs'),
+  }
+}
 
-const modules = bulk(__dirname, ['!(node_modules|test.js|*.test.js)/**/*.js'], {require: function (module) {
-  return module.match(/(.*.test.js$)/) ? null : require(module)
-}})
 
-module.exports = modules
+module.exports = { 'patch-tag': modules }
+
