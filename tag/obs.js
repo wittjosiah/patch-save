@@ -15,6 +15,7 @@ exports.gives = nest({
   'tag.obs': [
     'taggedMessages',
     'messageTags',
+    'messageTaggers',
     'allTagsFrom',
     'allTags'
   ]
@@ -30,6 +31,7 @@ exports.create = function(api) {
     'tag.obs': {
       taggedMessages,
       messageTags,
+      messageTaggers,
       allTagsFrom,
       allTags
     }
@@ -43,6 +45,11 @@ exports.create = function(api) {
   function messageTags(msgId) {
     if (!ref.isLink(msgId)) throw new Error('Requires an ssb ref!')
     return withSync(computed(getObs(msgId, messagesCache), getMessageTags))
+  }
+
+  function messageTaggers(msgId, tagId) {
+    if (!ref.isLink(msgId) || !ref.isLink(tagId)) throw new Error('Requires an ssb ref!')
+    return withSync(computed([getObs(msgId, messagesCache), tagId], getMessageTaggers))
   }
 
   function allTagsFrom(author) {
@@ -171,6 +178,16 @@ function getMessageTags(lookup) {
     }
   }
   return tags
+}
+
+function getMessageTaggers(lookup, key) {
+  const taggers = []
+  for (const author in lookup[key]) {
+    if (lookup[key][author]) {
+      taggers.push(author)
+    }
+  }
+  return taggers
 }
 
 function getAllTags(lookup) {
