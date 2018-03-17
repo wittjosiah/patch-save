@@ -1,4 +1,4 @@
-# patch-tag
+# scuttle-tag
 
 Tags [depject](https://github.com/depject/depject) plugin for [secure scuttlebutt](https://github.com/ssbc/secure-scuttlebutt) which uses [patchcore](https://github.com/ssbc/patchcore).
 
@@ -22,9 +22,15 @@ exports.gives = nest({
     'create',
     'name'
   ],
+  'tag.html': [
+    'edit',
+    'tag'
+  ],
   'tag.obs': [
+    'tag',
     'taggedMessages',
     'messageTags',
+    'messageTagsFrom',
     'allTagsFrom',
     'allTags'
   ]
@@ -64,13 +70,29 @@ Sets the name of a tag and calls cb when done.
 - `tag` (required) - id of tag being named
 - `name` (required) - name being applied to the tag
 
+### tag.html.edit({ msgId }, cb)
+
+Renders html which allows the tags applied to a message `msgId` to be edited.
+
+### tag.html.tag({ tagName, tagId }, handleRemove)
+
+Renders a tag. If the `handleRemove` function is specified then a remove button will be rendered.
+
+### tag.obs.tag(tagId)
+
+Returns a [Mutant](https://github.com/mmckegg/mutant) observable Struct which represents a tag. This struct holds the `tagId` and `tagName`.
+
 ### tag.obs.taggedMessages(author, tagId)
 
-Returns a [Mutant](https://github.com/mmckegg/mutant) observable array of ids of messages. This array is messages that have had the tag `tagId` applied by `author`.
+Returns a Mutant observable array of ids of messages. This array is messages that have had the tag `tagId` applied by `author`.
 
-### tag.obs.messageTags(msgId, tagId)
+### tag.obs.messageTags(msgId)
 
-Returns a Mutant observable dictionary of user ids to timestamps. This dictionary is users that have applied tag `tagId` to message `msgId` at the specified time.
+Returns a Mutant observable list of tagIds which have been applied to the message `msgId`.
+
+### tag.obs.messageTagsFrom(msgId, author)
+
+Returns a Mutant observable list of tagIds which have been applied to the message `msgId` by the specified `author`.
 
 ### tag.obs.allTagsFrom(author)
 

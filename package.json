@@ -1,5 +1,5 @@
 {
-  "name": "patch-tag",
+  "name": "scuttle-tag",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -8,11 +8,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "ssb://%L60QHnPeMSgdsjxKAYfFTTXvJV7WAUhUpKaYoCGKRlQ=.sha256"
+    "url": "github:wittjosiah/scuttle-tag"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "wittjosiah",
+  "license": "MIT",
   "dependencies": {
     "depnest": "^1.3.0",
     "hex-rgb": "^2.0.0",
