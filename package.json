@@ -15,10 +15,12 @@
   "license": "ISC",
   "dependencies": {
     "depnest": "^1.3.0",
+    "hex-rgb": "^2.0.0",
     "mutant": "^3.22.1",
     "mutant-pull-reduce": "^1.1.0",
     "pull-defer": "^0.2.2",
     "pull-stream": "^3.6.1",
-    "ssb-ref": "^2.9.1"
+    "ssb-ref": "^2.9.1",
+    "suggest-box": "^2.2.3"
   }
 }

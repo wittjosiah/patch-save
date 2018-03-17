@@ -5,7 +5,14 @@ var modules = {
       create: require('./tag/async/create'),
       name: require('./tag/async/name'),
     },
-    obs: require('./tag/obs'),
+    html: {
+      edit: require('./tag/html/edit'),
+      tag: require('./tag/html/tag'),
+    },
+    obs: {
+      obs: require('./tag/obs/obs'),
+      tag: require('./tag/obs/tag'),
+    }
   }
 }
 
