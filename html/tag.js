@@ -1,15 +1,8 @@
-const nest = require('depnest')
 const { h, computed } = require('mutant')
 const hexrgb = require('hex-rgb')
 
-exports.gives = nest('tag.html.tag')
-
-exports.needs = nest({
-  'about.obs.color': 'first'
-})
-
-exports.create = function(api) {
-  return nest({ 'tag.html.tag': function({ tagName, tagId }, handleRemove) {
+module.exports = function(server, api) {
+  return function({ tagName, tagId }, handleRemove) {
     var removeTag
     if (handleRemove) {
       removeTag = h('a', {

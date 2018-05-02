@@ -7,37 +7,20 @@ var unset = require('lodash/unset')
 var get = require('lodash/get')
 var isEmpty = require('lodash/isEmpty')
 
-exports.needs = nest({
-  'sbot.pull.stream': 'first'
-})
-
-exports.gives = nest({
-  'tag.obs': [
-    'taggedMessages',
-    'messageTags',
-    'messageTagsFrom',
-    'messageTaggers',
-    'allTagsFrom',
-    'allTags'
-  ]
-})
-
-exports.create = function(api) {
+module.exports = function(server, api) {
   var tagsCache = {}
   var messagesCache = {}
   var cacheLoading = false
   var sync = Value(false)
 
-  return nest({
-    'tag.obs': {
-      taggedMessages,
-      messageTags,
-      messageTagsFrom,
-      messageTaggers,
-      allTagsFrom,
-      allTags
-    }
-  })
+  return {
+    taggedMessages,
+    messageTags,
+    messageTagsFrom,
+    messageTaggers,
+    allTagsFrom,
+    allTags
+  }
 
   function taggedMessages(author, tagId) {
     if (!ref.isFeed(author) || !ref.isLink(tagId)) throw new Error('Requires an ssb ref!')
@@ -127,7 +110,7 @@ exports.create = function(api) {
 
   function loadCache() {
     pull(
-      api.sbot.pull.stream(sbot => sbot.tags.stream({ live: true })),
+      server.tags.stream({ live: true }),
       pull.drain(item => {
         if (!sync()) {
           // populate tags observable cache

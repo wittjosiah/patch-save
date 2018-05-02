@@ -7,24 +7,15 @@ const zip = require('lodash/zip')
 const forEach = require('lodash/forEach')
 const addSuggest = require('suggest-box')
 
-exports.gives = nest('tag.html.edit')
+const apply = require('../async/apply')
+const create = require('../async/create')
+const name = require('../async/name')
+const htmlTag = require('./tag')
+const tagObs = require('../obs/tag')
+const { allTags, messageTagsFrom } = require('../obs/obs')
 
-exports.needs = nest({
-  'about.obs.name': 'first',
-  'keys.sync.id': 'first',
-  'tag.async.apply': 'first',
-  'tag.async.create': 'first',
-  'tag.async.name': 'first',
-  'tag.html.tag': 'first',
-  'tag.obs.allTags': 'first',
-  'tag.obs.messageTagsFrom': 'first',
-  'tag.obs.tag': 'first',
-})
-
-exports.create = function(api) {
-  return nest({ 'tag.html.edit': edit })
-
-  function edit({ msgId }, cb) {
+module.exports = function(server, api) {
+  return function edit(msgId, cb) {
     const tagsToCreate = MutantArray([])
     const tagsToApply = MutantArray([])
     const tagsToRemove = MutantArray([])
@@ -32,8 +23,8 @@ exports.create = function(api) {
 
     const myId = api.keys.sync.id()
     const messageTags = map(
-      api.tag.obs.messageTagsFrom(msgId, myId),
-      tagId => api.tag.obs.tag(tagId)
+      messageTagsFrom(msgId, myId),
+      tagId => tagObs(tagId)
     )
     const filteredMessages = computed(
       [ messageTags, tagsToRemove ],
@@ -42,15 +33,15 @@ exports.create = function(api) {
 
     const messageTagsView = map(
       filteredMessages,
-      tag => computed(tag, t => api.tag.html.tag(t, () => tagsToRemove.push(t.tagId)))
+      tag => computed(tag, t => htmlTag(t, () => tagsToRemove.push(t.tagId)))
     )
     const tagsToApplyView = map(
       tagsToApply,
-      tag => api.tag.html.tag(tag, () => tagsToApply.delete(tag))
+      tag => htmlTag(tag, () => tagsToApply.delete(tag))
     )
     const tagsToCreateView = map(
       tagsToCreate,
-      tag => api.tag.html.tag({ tagName: tag, tagId: 'new' }, () => tagsToCreate.delete(tag))
+      tag => htmlTag({ tagName: tag, tagId: 'new' }, () => tagsToCreate.delete(tag))
     )
     const stagedTags = computed(
       [messageTagsView, tagsToApplyView, tagsToCreateView],
@@ -105,7 +96,7 @@ exports.create = function(api) {
 
     function getTagSuggestions(word) {
       const suggestions = map(
-        api.tag.obs.allTags(),
+        allTags(),
         tagId => {
           const tagName = api.about.obs.name(tagId)()
           return {
@@ -128,10 +119,10 @@ exports.create = function(api) {
       forEach(
         tagsToCreate(),
         tag => {
-          api.tag.async.create(null, (err, msg) => {
+          create(null, (err, msg) => {
             if (err) return
-            api.tag.async.name({ tag: msg.key, name: tag }, cb)
-            api.tag.async.apply({ tagged: true, message: msgId, tag: msg.key }, cb)
+            name({ tag: msg.key, name: tag }, cb)
+            apply({ tagged: true, message: msgId, tag: msg.key }, cb)
           })
         }
       )
@@ -139,13 +130,13 @@ exports.create = function(api) {
       // tagsToApply
       forEach(
         tagsToApply(),
-        tag => api.tag.async.apply({ tagged: true, message: msgId, tag: tag.tagId }, cb)
+        tag => apply({ tagged: true, message: msgId, tag: tag.tagId }, cb)
       )
 
       // tagsToRemove
       forEach(
         tagsToRemove(),
-        tagId => api.tag.async.apply({ tagged: false, message: msgId, tag: tagId }, cb)
+        tagId => apply({ tagged: false, message: msgId, tag: tagId }, cb)
       )
     }
   }
