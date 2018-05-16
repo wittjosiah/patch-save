@@ -1,41 +1,13 @@
 # scuttle-tag
 
-Tags [depject](https://github.com/depject/depject) plugin for [secure scuttlebutt](https://github.com/ssbc/secure-scuttlebutt) which uses [patchcore](https://github.com/ssbc/patchcore).
+Tag reading and manipulation plugin for [secure scuttlebutt](https://github.com/ssbc/secure-scuttlebutt).
 
 `gives` observables and async methods for getting and publishing tags on secure scuttlebutt.
 
-## Needs
+## Dependencies
 
-```js
-exports.needs = nest({
-  'sbot.async.publish': 'first',
-  'sbot.pull.stream': 'first',
-})
-```
+`ssb-backlinks` must be installed in your server
 
-## Gives
-
-```js
-exports.gives = nest({
-  'tag.async': [
-    'apply',
-    'create',
-    'name'
-  ],
-  'tag.html': [
-    'edit',
-    'tag'
-  ],
-  'tag.obs': [
-    'tag',
-    'taggedMessages',
-    'messageTags',
-    'messageTagsFrom',
-    'allTagsFrom',
-    'allTags'
-  ]
-})
-```
 
 ## Message Schema
 
@@ -43,11 +15,20 @@ exports.gives = nest({
 {
   type: 'tag',
   tagged: true | false,
-  message: %msg_id, //the message being tagged
-  root: %tag_id, //unless this message is the first message in this tag
-  branch: %tag_id //ditto
+  message: %msg_id, // the message being tagged
+  root: %tag_id, // unless this is original message for this tag
+  branch: %tag_id | [%tag_id_a, %tag_id_b, ...] // only required if root present
 }
 ```
+
+## Instantiate
+
+```js
+var TagHelper = require('scuttle-tag')
+var tag = TagHelper(server)
+```
+
+where `server` is a scuttlebutt server, ssb-client instance, or an observeable which will resolve to one of these!
 
 ## API
 

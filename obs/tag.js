@@ -1,10 +1,13 @@
 const { Struct } = require('mutant')
 
-module.exports = function(server, api) {
-  return function(tagId) {
+// Not quite sure this is useful with the patchcore stipped out.
+// Could be we roll our own with ssb-about
+
+module.exports = function (server) {
+  return function Tag (tagId, nameFn) {
     return Struct({
-      tagId: Value(tagId),
-      tagName: api.about.obs.name(tagId),
+      tagId,
+      tagName: nameFn(tagId)
     })
   }
 }
