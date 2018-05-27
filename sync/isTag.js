@@ -1,6 +1,6 @@
 const validator = require('is-my-json-valid')
+const getMsgContent = require('ssb-msg-content')
 const schema = require('../schema/tag')
-const getMsgContent = require('../lib/getMsgContent')
 
 const isTagContent = validator(schema, {verbose: true})
 

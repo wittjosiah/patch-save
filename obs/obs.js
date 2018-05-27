@@ -1,13 +1,12 @@
 var { Value, Set, computed } = require('mutant')
 var pull = require('pull-stream')
-var nest = require('depnest')
 var ref = require('ssb-ref')
 var set = require('lodash/set')
 var unset = require('lodash/unset')
 var get = require('lodash/get')
 var isEmpty = require('lodash/isEmpty')
 
-module.exports = function(server, api) {
+module.exports = function(server) {
   var tagsCache = {}
   var messagesCache = {}
   var cacheLoading = false
@@ -20,11 +19,6 @@ module.exports = function(server, api) {
     messageTaggers,
     allTagsFrom,
     allTags
-  }
-
-  function taggedMessages(author, tagId) {
-    if (!ref.isFeed(author) || !ref.isLink(tagId)) throw new Error('Requires an ssb ref!')
-    return withSync(computed([getObs(author, tagsCache), tagId], getTaggedMessages))
   }
 
   function messageTags(msgId) {
@@ -42,14 +36,21 @@ module.exports = function(server, api) {
     return withSync(computed([getObs(msgId, messagesCache), tagId], getMessageTaggers))
   }
 
+  function allTags() {
+    return withSync(getAllTags(getCache(tagsCache)))
+  }
+
   function allTagsFrom(author) {
     if (!ref.isFeed(author)) throw new Error('Requires an ssb ref!')
     return withSync(computed(getObs(author, tagsCache), Object.keys))
   }
 
-  function allTags() {
-    return withSync(getAllTags(getCache(tagsCache)))
+  // this looks more like a `allTagsFromForTag`
+  function taggedMessages(author, tagId) {
+    if (!ref.isFeed(author) || !ref.isLink(tagId)) throw new Error('Requires an ssb ref!')
+    return withSync(computed([getObs(author, tagsCache), tagId], getTaggedMessages))
   }
+
 
   function withSync(obs) {
     obs.sync = sync
@@ -102,12 +103,15 @@ module.exports = function(server, api) {
         }
       }
     }
-  
+
     if (changed) {
       state.set(lastState)
     }
   }
 
+  // Let's use this but not that this pattern is incredibly resource intensive.
+  // Once we have this module installed this is an area we can and should re-write with a flume index!
+  // It's gonna be so much faster :)
   function loadCache() {
     pull(
       server.tags.stream({ live: true }),
