@@ -1,4 +1,4 @@
-var { Value, Set, computed } = require('mutant')
+var { Value, Set, Struct, computed } = require('mutant')
 var pull = require('pull-stream')
 var ref = require('ssb-ref')
 var set = require('lodash/set')
@@ -6,58 +6,80 @@ var unset = require('lodash/unset')
 var get = require('lodash/get')
 var isEmpty = require('lodash/isEmpty')
 
-module.exports = function(server) {
+module.exports = function (server) {
   var tagsCache = {}
   var messagesCache = {}
   var cacheLoading = false
   var sync = Value(false)
 
   return {
-    taggedMessages,
+    Tag,
     messageTags,
     messageTagsFrom,
     messageTaggers,
+    allTags,
     allTagsFrom,
-    allTags
+    messagesTaggedByWith
   }
 
-  function messageTags(msgId) {
+  function Tag (tagId, nameFn) {
+    let tagName
+
+    if (nameFn) {
+      // Use nameFn is supplied
+      tagName = nameFn(tagId)
+    } else if (server.names) {
+      // Fallback to ssb-names plugin if available
+      tagName = Value()
+      server.names.getSignifier(tagId, function (signifier) {
+        tagName.set(signifier)
+      })
+    } else {
+      // Otherwise use short id
+      tagName = Value(tagId.slice(1, 10))
+    }
+
+    return Struct({
+      tagId,
+      tagName,
+    })
+  }
+
+  function messageTags (msgId) {
     if (!ref.isLink(msgId)) throw new Error('Requires an ssb ref!')
     return withSync(computed(getObs(msgId, messagesCache), getMessageTags))
   }
 
-  function messageTagsFrom(msgId, author) {
-    if (!ref.isLink(msgId) || !ref.isFeed(author)) throw new Error('Requires an ssb ref!')
+  function messageTagsFrom (msgId, author) {
+    if (!ref.isLink(msgId) || !ref.isFeedId(author)) throw new Error('Requires an ssb ref!')
     return withSync(computed([getObs(msgId, messagesCache), author], getMessageTagsFrom))
   }
 
-  function messageTaggers(msgId, tagId) {
+  function messageTaggers (msgId, tagId) {
     if (!ref.isLink(msgId) || !ref.isLink(tagId)) throw new Error('Requires an ssb ref!')
     return withSync(computed([getObs(msgId, messagesCache), tagId], getMessageTaggers))
   }
 
-  function allTags() {
+  function allTags () {
     return withSync(getAllTags(getCache(tagsCache)))
   }
 
-  function allTagsFrom(author) {
-    if (!ref.isFeed(author)) throw new Error('Requires an ssb ref!')
+  function allTagsFrom (author) {
+    if (!ref.isFeedId(author)) throw new Error('Requires an ssb ref!')
     return withSync(computed(getObs(author, tagsCache), Object.keys))
   }
 
-  // this looks more like a `allTagsFromForTag`
-  function taggedMessages(author, tagId) {
-    if (!ref.isFeed(author) || !ref.isLink(tagId)) throw new Error('Requires an ssb ref!')
+  function messagesTaggedByWith (author, tagId) {
+    if (!ref.isFeedId(author) || !ref.isLink(tagId)) throw new Error('Requires an ssb ref!')
     return withSync(computed([getObs(author, tagsCache), tagId], getTaggedMessages))
   }
 
-
-  function withSync(obs) {
+  function withSync (obs) {
     obs.sync = sync
     return obs
   }
 
-  function getObs(id, lookup) {
+  function getObs (id, lookup) {
     if (!ref.isLink(id)) throw new Error('Requires an ssb ref!')
     if (!cacheLoading) {
       cacheLoading = true
@@ -69,7 +91,7 @@ module.exports = function(server) {
     return lookup[id]
   }
 
-  function getCache(lookup) {
+  function getCache (lookup) {
     if (!cacheLoading) {
       cacheLoading = true
       loadCache()
@@ -77,11 +99,11 @@ module.exports = function(server) {
     return lookup
   }
 
-  function update(id, values, lookup) {
+  function update (id, values, lookup) {
     const state = getObs(id, lookup)
     const lastState = state()
     var changed = false
-  
+
     for (const tag in values) {
       const lastTag = lastState[tag]
       const isUnusedTag = isEmpty(values[tag]) && (lastTag === undefined || !isEmpty(lastTag))
@@ -109,10 +131,8 @@ module.exports = function(server) {
     }
   }
 
-  // Let's use this but not that this pattern is incredibly resource intensive.
-  // Once we have this module installed this is an area we can and should re-write with a flume index!
-  // It's gonna be so much faster :)
-  function loadCache() {
+  // TODO: rewrite with a flume index to improve performance
+  function loadCache () {
     pull(
       server.tags.stream({ live: true }),
       pull.drain(item => {
@@ -138,7 +158,7 @@ module.exports = function(server) {
           if (!sync()) {
             sync.set(true)
           }
-        } else if (item && ref.isLink(item.tagKey) && ref.isFeed(item.author) && ref.isLink(item.message)) {
+        } else if (item && ref.isLink(item.tagKey) && ref.isFeedId(item.author) && ref.isLink(item.message)) {
           // handle realtime updates
           const { tagKey, author, message, tagged, timestamp } = item
           if (tagged) {
@@ -154,7 +174,7 @@ module.exports = function(server) {
   }
 }
 
-function getTaggedMessages(lookup, key) {
+function getTaggedMessages (lookup, key) {
   const messages = []
   for (const msg in lookup[key]) {
     if (lookup[key][msg]) {
@@ -164,7 +184,7 @@ function getTaggedMessages(lookup, key) {
   return messages
 }
 
-function getMessageTags(lookup) {
+function getMessageTags (lookup) {
   const tags = []
   for (const tag in lookup) {
     if (!isEmpty(lookup[tag])) {
@@ -174,7 +194,7 @@ function getMessageTags(lookup) {
   return tags
 }
 
-function getMessageTagsFrom(lookup, author) {
+function getMessageTagsFrom (lookup, author) {
   const tags = []
   for (const tag in lookup) {
     if (lookup[tag][author]) {
@@ -184,7 +204,7 @@ function getMessageTagsFrom(lookup, author) {
   return tags
 }
 
-function getMessageTaggers(lookup, key) {
+function getMessageTaggers (lookup, key) {
   const taggers = []
   for (const author in lookup[key]) {
     if (lookup[key][author]) {
@@ -194,7 +214,7 @@ function getMessageTaggers(lookup, key) {
   return taggers
 }
 
-function getAllTags(lookup) {
+function getAllTags (lookup) {
   const tags = Set([])
   for (const author in lookup) {
     const authorTags = lookup[author]()

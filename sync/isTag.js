@@ -4,8 +4,8 @@ const schema = require('../schema/tag')
 
 const isTagContent = validator(schema, {verbose: true})
 
-module.exports = function(server, api) {
-  return function isTag(obj) {
+module.exports = function (server, api) {
+  return function isTag (obj) {
     const result = isTagContent(getMsgContent(obj))
 
     // exposes error messages provided by is-my-json-valid

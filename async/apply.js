@@ -1,13 +1,14 @@
 const pull = require('pull-stream')
 const { heads } = require('ssb-sort')
-const { isFeed } = require('ssb-ref') // TODO check this is name of method!
+const { isFeedId } = require('ssb-ref')
 const isTag = require('../sync/isTag')
+const TagError = require('../sync/TagError')
 
 module.exports = function (server) {
   return function applyTag (data, cb) {
     const { tagged, message, recps = [], tag } = data
     const _recps = recps.filter(feed => {
-      return isFeed(feed) || isFeed(feed.link) // TODO check this logic
+      return isFeedId(feed) || isFeedId(feed.link) // TODO check this logic
     })
 
     pull(
@@ -31,10 +32,6 @@ module.exports = function (server) {
         server.publish(msg, cb)
       })
     )
-  }
-
-  function TagError (msg) {
-    return new Error(`Not a valid tag ${JSON.stringify(msg, null, 2)}`)
   }
 
   function createBacklinkStream (key) {

@@ -1,6 +1,5 @@
 const { msgIdRegex } = require('ssb-ref')
 
-// This is the thing which absolutely needs testing.
 module.exports = {
   $schema: 'http://json-schema.org/schema#',
   type: 'object',
@@ -10,7 +9,15 @@ module.exports = {
     tagged: { type: 'boolean' },
     message: { type: 'string', pattern: msgIdRegex },
     root: { type: 'string', pattern: msgIdRegex },
-    // branch: { type: 'string', pattern: msgIdRegex }
-    // Branch can be an Array too. I recommend Copy stuff from ssb-poll-schema
+    branch: {
+      oneOf: [
+        { type: 'string', pattern: msgIdRegex },
+        {
+          type: 'array',
+          items: { type: 'string', pattern: msgIdRegex },
+          minLength: 1
+        }
+      ]
+    }
   }
 }

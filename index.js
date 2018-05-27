@@ -2,16 +2,9 @@ const methods = {
   async: {
     apply: require('./async/apply'),
     create: require('./async/create'),
-    name: require('./async/name'),
+    name: require('./async/name')
   },
-  html: {
-    edit: require('./html/edit'),
-    tag: require('./html/tag'),
-  },
-  obs: {
-    obs: require('./obs/obs'),
-    tag: require('./obs/tag'),
-  }
+  obs: require('./obs')
 }
 
 module.exports = function ScuttleTag (server) {

@@ -1,4 +1,5 @@
 const isTag = require('../sync/isTag')
+const TagError = require('../sync/TagError')
 
 module.exports = function (server) {
   return function createTag (recps, cb) {
@@ -7,7 +8,8 @@ module.exports = function (server) {
       recps,
       private: true
     } : { type: 'tag' }
-    if (!isTag(msg)) return cb(new Error(`Not a valid tag ${JSON.stringify(msg, null, 2)}`))
+
+    if (!isTag(msg)) return cb(TagError(msg))
     server.publish(msg, cb)
   }
 }
