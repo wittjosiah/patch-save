@@ -100,8 +100,8 @@ function getCache (server, lookup) {
   return lookup
 }
 
-function update (id, values, lookup) {
-  const state = getObs(id, lookup)
+function update (id, values, server, lookup) {
+  const state = getObs(id, server, lookup)
   const lastState = state()
   var changed = false
 
@@ -141,7 +141,7 @@ function loadCache (server) {
         // populate tags observable cache
         const messageLookup = {}
         for (const author in item) {
-          update(author, item[author], tagsCache)
+          update(author, item[author], server, tagsCache)
 
           // generate message lookup
           for (const tag in item[author]) {
@@ -153,7 +153,7 @@ function loadCache (server) {
 
         // populate messages observable cache
         for (const message in messageLookup) {
-          update(message, messageLookup[message], messagesCache)
+          update(message, messageLookup[message], server, messagesCache)
         }
 
         if (!sync()) {
@@ -163,11 +163,11 @@ function loadCache (server) {
         // handle realtime updates
         const { tagKey, author, message, tagged, timestamp } = item
         if (tagged) {
-          update(author, { [tagKey]: { [message]: timestamp } }, tagsCache)
-          update(message, { [tagKey]: { [author]: timestamp } }, messagesCache)
+          update(author, { [tagKey]: { [message]: timestamp } }, server, tagsCache)
+          update(message, { [tagKey]: { [author]: timestamp } }, server, messagesCache)
         } else {
-          update(author, { [tagKey]: { [message]: false } }, tagsCache)
-          update(message, { [tagKey]: { [author]: false } }, messagesCache)
+          update(author, { [tagKey]: { [message]: false } }, server, tagsCache)
+          update(message, { [tagKey]: { [author]: false } }, server, messagesCache)
         }
       }
     })
