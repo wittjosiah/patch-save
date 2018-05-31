@@ -31,7 +31,7 @@ function Tag (server) {
 
     return Struct({
       tagId,
-      tagName,
+      tagName
     })
   }
 }
@@ -64,7 +64,7 @@ function allTags (server) {
 function allTagsFrom (server) {
   return (author) => {
     if (!ref.isFeedId(author)) throw new Error('Requires an ssb ref!')
-    return withSync(computed(getObs(author, server, tagsCache), Object.keys))
+    return withSync(computed(getObs(author, server, tagsCache), getAllTagsFrom))
   }
 }
 
@@ -174,7 +174,6 @@ function loadCache (server) {
   )
 }
 
-
 function getTaggedMessages (lookup, key) {
   const messages = []
   for (const msg in lookup[key]) {
@@ -222,6 +221,15 @@ function getAllTags (lookup) {
     for (const tag in authorTags) {
       tags.add(tag)
     }
+  }
+  return tags
+}
+
+function getAllTagsFrom (lookup) {
+  const tags = []
+  for (const tag in lookup) {
+    if (isEmpty(lookup[tag])) continue
+    tags.push(tag)
   }
   return tags
 }
