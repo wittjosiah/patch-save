@@ -1,4 +1,4 @@
-# scuttle-tag
+# scuttle-tag DEVELOPMENT MOVED [HERE](https://github.com/ssbc/scuttle-tag)
 
 Tag reading and manipulation plugin for [secure scuttlebutt](https://github.com/ssbc/secure-scuttlebutt).
 
