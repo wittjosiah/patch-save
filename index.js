@@ -1,21 +1,12 @@
-var modules = {
-  tag: {
-    async: {
-      apply: require('./tag/async/apply'),
-      create: require('./tag/async/create'),
-      name: require('./tag/async/name'),
-    },
-    html: {
-      edit: require('./tag/html/edit'),
-      tag: require('./tag/html/tag'),
-    },
-    obs: {
-      obs: require('./tag/obs/obs'),
-      tag: require('./tag/obs/tag'),
-    }
-  }
+const methods = {
+  async: {
+    apply: require('./async/apply'),
+    create: require('./async/create'),
+    name: require('./async/name')
+  },
+  obs: require('./obs')
 }
 
-
-module.exports = { 'patch-tag': modules }
-
+module.exports = function ScuttleTag (server) {
+  return require('./lib/inject')(server, methods)
+}
